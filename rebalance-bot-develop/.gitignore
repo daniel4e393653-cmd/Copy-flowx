@@ -1,0 +1,8 @@
+node_modules/
+
+dist/
+
+.env
+
+# Ignore the app.json file
+*.json
