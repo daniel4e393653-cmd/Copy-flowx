@@ -116,6 +116,13 @@ export class Fraction {
   }
 
   /**
+   * Get the quotient (numerator / denominator) as BN
+   */
+  get quotient(): BN {
+    return this.numerator.div(this.denominator);
+  }
+
+  /**
    * Convert to fixed decimal string
    */
   toFixed(decimalPlaces: number = 18): string {
@@ -171,17 +178,54 @@ export class Coin {
   public readonly coinType: string;
   public readonly decimals?: number;
   public readonly symbol?: string;
+  public readonly name?: string;
 
-  constructor(coinType: string, decimals?: number, symbol?: string) {
+  constructor(coinType: string, decimals?: number, symbol?: string, name?: string) {
     this.coinType = coinType;
     this.decimals = decimals;
     this.symbol = symbol;
+    this.name = name;
   }
 
   equals(other: Coin): boolean {
     return this.coinType === other.coinType;
   }
+
+  sortsBefore(other: Coin): boolean {
+    return this.coinType.toLowerCase() < other.coinType.toLowerCase();
+  }
 }
+
+/**
+ * Price class to represent a price ratio between two coins
+ */
+export class Price<TBase extends Coin = Coin, TQuote extends Coin = Coin> {
+  public readonly baseCoin: TBase;
+  public readonly quoteCoin: TQuote;
+  public readonly numerator: BN;
+  public readonly denominator: BN;
+
+  constructor(
+    baseCoin: TBase,
+    quoteCoin: TQuote,
+    denominator: BN | string | number,
+    numerator: BN | string | number
+  ) {
+    this.baseCoin = baseCoin;
+    this.quoteCoin = quoteCoin;
+    this.numerator = new BN(numerator.toString());
+    this.denominator = new BN(denominator.toString());
+  }
+
+  toSignificant(decimalPlaces: number = 6): string {
+    return new Fraction(this.numerator, this.denominator).toFixed(decimalPlaces);
+  }
+}
+
+/**
+ * Q128 constant for price calculations
+ */
+export const Q128 = new BN(2).pow(new BN(128));
 
 /**
  * Utility function to get current time in milliseconds
