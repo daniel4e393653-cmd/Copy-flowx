@@ -4,7 +4,7 @@ Automated rebalancing bot for Concentrated Liquidity Market Maker (CLMM) positio
 
 ## Features
 
-- **Protocol Support**: Works with FlowX V3, 
+- **Protocol Support**: Works with Cetus CLMM
 - **Automated Rebalancing**: Continuously monitors positions and rebalances when price moves outside target ranges
 - **Reward Compounding**: Automatically compounds rewards based on configurable thresholds and schedules
 - **Price Impact Protection**: Configurable price impact thresholds to prevent unfavorable trades
@@ -19,7 +19,7 @@ The bot consists of several key components:
 - **Worker**: Main orchestrator that manages the rebalancing process
 - **PositionManager**: Handles position creation, closing, and management
 - **Pool Providers**: Interface with different CLMM protocols
-- **Price Providers**: Aggregate price data from multiple sources (Pyth, FlowX, etc.)
+- **Price Providers**: Aggregate price data from Pyth oracle
 - **Transaction Executor**: Manages Sui blockchain transactions with caching
 
 ## How It Works
@@ -89,10 +89,10 @@ Create a `.env` file in the root directory with the following variables:
 ### Required Configuration
 
 ```env
-# Protocol to use FLOWX_V3
-PROTOCOL=FLOWX_V3
+# Protocol to use (CETUS for Cetus CLMM)
+PROTOCOL=CETUS
 
-# Target pool ID for rebalancing
+# Target pool ID for rebalancing (Cetus pool object ID)
 TARGET_POOL=0x...
 
 # Private key for the wallet (without 0x prefix)
@@ -187,7 +187,7 @@ The bot can automatically compound rewards based on:
 
 ## Supported Protocols
 
-- **FlowX V3**: Next-generation AMM with concentrated liquidity
+- **Cetus CLMM**: Concentrated liquidity market maker on Sui blockchain
 
 
 
