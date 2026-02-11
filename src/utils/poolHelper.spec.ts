@@ -1,6 +1,5 @@
 import BN from "bn.js";
-
-import { ClmmTickMath } from "@flowx-finance/sdk";
+import { ClmmTickMath } from "./tickMath";
 import { closestActiveRange } from "./poolHelper";
 
 describe("#poolHelper", () => {

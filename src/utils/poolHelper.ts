@@ -1,11 +1,9 @@
-import {
-  ClmmPool,
-  ClmmPosition,
-  ClmmTickMath,
-} from "@flowx-finance/sdk";
+import { ClmmTickMath } from "./tickMath";
+import { Pool } from "../entities/pool/Pool";
+import { Position } from "../entities/position/Position";
 import BN from "bn.js";
 
-export const closestActiveRange = (pool: ClmmPool, multiplier = 1) => {
+export const closestActiveRange = (pool: Pool, multiplier = 1) => {
   const halfRange = (multiplier * pool.tickSpacing) / 2;
   const candidateTickLower =
     Math.round((pool.tickCurrent - halfRange) / pool.tickSpacing) *
@@ -27,7 +25,7 @@ export const closestActiveRange = (pool: ClmmPool, multiplier = 1) => {
 };
 
 export const isOutOfRange = (
-  position: ClmmPosition,
+  position: Position,
   multiplier: number
 ): boolean => {
   const activeTicks = closestActiveRange(position.pool, multiplier);

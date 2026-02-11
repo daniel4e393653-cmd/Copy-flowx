@@ -2,17 +2,20 @@ import BN from "bn.js";
 import BigNumber from "bignumber.js";
 import invariant from "tiny-invariant";
 import { Transaction, TransactionResult } from "@mysten/sui/transactions";
+// FlowX Aggregator imports - used for swap routing, not CLMM positions
 import {
   AggregatorQuoter,
-  BPS,
-  Percent,
   TradeBuilder,
   GetRoutesResult,
-  Coin,
-  ZERO,
   Commission,
   CommissionType,
 } from "@flowx-finance/sdk";
+import {
+  BPS,
+  Percent,
+  Coin,
+  ZERO,
+} from "./utils/sdkTypes";
 
 import {
   AggregatorPriceProvider,

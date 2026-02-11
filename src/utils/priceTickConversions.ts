@@ -1,6 +1,7 @@
-import { ClmmTickMath, Coin, Price, Q128 } from "@flowx-finance/sdk";
+import { ClmmTickMath } from "./tickMath";
+import { Coin, Price, Q128, Fraction } from "./sdkTypes";
 import { BigintIsh } from "../constants";
-import { BN } from "bn.js";
+import BN from "bn.js";
 
 /**
  * Returns a price object corresponding to the input tick and the base/quote token
@@ -24,7 +25,7 @@ export function sqrtPriceX64ToPrice(
   quoteCoin: Coin,
   sqrtPriceX64: BigintIsh
 ): Price<Coin, Coin> {
-  const ratioX128 = new BN(sqrtPriceX64).mul(new BN(sqrtPriceX64));
+  const ratioX128 = new BN(sqrtPriceX64.toString()).mul(new BN(sqrtPriceX64.toString()));
 
   return baseCoin.sortsBefore(quoteCoin)
     ? new Price(baseCoin, quoteCoin, Q128, ratioX128)

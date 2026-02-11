@@ -1,12 +1,31 @@
-import { BPS, Percent } from "@flowx-finance/sdk";
+import { BPS, Percent, Protocol } from "./utils/sdkTypes";
 import { Worker } from "./Worker";
 import { removeTrailingZeros } from "./utils/stringUtils";
 import { ClmmProtocol } from "./constants";
 
 require("dotenv").config({});
 
+// Validate required environment variables
+if (!process.env.PROTOCOL) {
+  throw new Error("PROTOCOL environment variable is required");
+}
+
+if (!process.env.TARGET_POOL) {
+  throw new Error("TARGET_POOL environment variable is required");
+}
+
+if (!process.env.PRIVATE_KEY) {
+  throw new Error("PRIVATE_KEY environment variable is required");
+}
+
+// Validate protocol value
+const protocol = process.env.PROTOCOL as ClmmProtocol;
+if (protocol !== Protocol.CETUS) {
+  throw new Error(`Unsupported protocol: ${protocol}. Only CETUS is supported.`);
+}
+
 const workerOptions = {
-  protocol: process.env.PROTOCOL as ClmmProtocol,
+  protocol,
   poolId: process.env.TARGET_POOL,
   bPricePercent: new Percent(Number(process.env.BPRICE_PERCENT), BPS),
   tPricePercent: new Percent(Number(process.env.TPRICE_PERCENT), BPS),

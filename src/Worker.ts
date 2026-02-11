@@ -1,7 +1,7 @@
 import { decodeSuiPrivateKey } from "@mysten/sui/cryptography";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { Transaction } from "@mysten/sui/transactions";
-import { nowInMilliseconds, Percent } from "@flowx-finance/sdk";
+import { nowInMilliseconds, Percent } from "./utils/sdkTypes";
 import BN from "bn.js";
 import invariant from "tiny-invariant";
 
@@ -39,7 +39,7 @@ export class Worker {
   private isStarted = false;
   private nextTickTimer = 5000;
   private processingTimeout = 300000;
-  private lastCompoundRewardAt: number;
+  private lastCompoundRewardAt: number = 0;
 
   private poolId: string;
   private signer: Ed25519Keypair;
@@ -51,7 +51,7 @@ export class Worker {
   private txExecutor: CachingSuiTransactionExecutor;
   private logger = getLogger(module);
 
-  private position: Position;
+  private position!: Position;
   private positionProvider: IPositionProvider;
 
   constructor(options: WorkerOptions, privateKey: string) {
