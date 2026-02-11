@@ -77,4 +77,27 @@ export class Pool {
   get coinY(): Coin {
     return this.coins[1];
   }
+
+  /**
+   * Get the ratio of liquidity for a given tick range
+   * This is used by ZapCalculator to determine token ratios
+   */
+  getRatio(tickLower: number, tickUpper: number): any {
+    // Simplified implementation for now
+    // TODO: Implement proper tick math for ratio calculation
+    const { Fraction } = require("../../utils/sdkTypes");
+    const currentTick = this.tickCurrent;
+    
+    // If current tick is below range, all in token Y
+    if (currentTick < tickLower) {
+      return new Fraction(0, 1);
+    }
+    // If current tick is above range, all in token X
+    if (currentTick >= tickUpper) {
+      return new Fraction(1, 0);
+    }
+    // If in range, calculate ratio based on current price
+    // Simplified: return 1:1 ratio
+    return new Fraction(1, 1);
+  }
 }

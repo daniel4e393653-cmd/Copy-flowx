@@ -4,5 +4,5 @@ dist/
 
 .env
 
-# Ignore the app.json file
-*.json
+# Ignore specific json files
+app.json
