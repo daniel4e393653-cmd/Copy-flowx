@@ -129,11 +129,13 @@ const delay = Math.min(
 ```
 
 **Example Delay Progression** (baseDelay=1000ms, maxDelay=30000ms):
-- Attempt 1: 1000ms (1000 * 2^0)
-- Attempt 2: 2000ms (1000 * 2^1)
-- Attempt 3: 4000ms (1000 * 2^2)
-- Attempt 4: 8000ms (1000 * 2^3)
-- Attempt 5: 16000ms (1000 * 2^4)
+- Attempt 1: Execute immediately (no delay before first attempt)
+- Attempt 2: Wait 1000ms after failure (1000 * 2^0), then execute
+- Attempt 3: Wait 2000ms after failure (1000 * 2^1), then execute
+- Attempt 4: Wait 4000ms after failure (1000 * 2^2), then execute
+- Attempt 5: Wait 8000ms after failure (1000 * 2^3), then execute
+
+Note: Delays occur AFTER failures, not before attempts. First attempt has no delay.
 
 ### ✅ 5. No Changes to Other Bot Logic
 Verification:
@@ -300,12 +302,19 @@ const valid = validateTypeArguments(normalized);
 
 ### Worst Case Scenario (5 retries, all fail)
 ```
-Attempt 1: Execute + wait 1000ms
-Attempt 2: Execute + wait 2000ms
-Attempt 3: Execute + wait 4000ms
-Attempt 4: Execute + wait 8000ms
-Attempt 5: Execute + fail
-Total: ~15 seconds + 5 execution attempts
+Attempt 1: Execute (~1-3s) + fail
+Wait: 1000ms (1000 * 2^0)
+Attempt 2: Execute (~1-3s) + fail
+Wait: 2000ms (1000 * 2^1)
+Attempt 3: Execute (~1-3s) + fail
+Wait: 4000ms (1000 * 2^2)
+Attempt 4: Execute (~1-3s) + fail
+Wait: 8000ms (1000 * 2^3)
+Attempt 5: Execute (~1-3s) + fail
+
+Cumulative wait time: 15 seconds (1000 + 2000 + 4000 + 8000)
+Total execution time: 5-15 seconds (5 attempts × 1-3s each)
+Total worst case: ~20-30 seconds
 ```
 
 ### Best Case Scenario (Success on first attempt)
