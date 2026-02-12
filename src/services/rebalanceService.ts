@@ -191,13 +191,9 @@ export class RebalanceService {
     // Use SDK builder pattern with proper tick conversion from SDK's asUintN
     logger.info('Step 6: Open new position → returns newPosition NFT');
     
-    // Import SDK's asUintN function approach for tick conversion
-    const asUintN = (int: bigint, bits: number = 32): string => {
-      return BigInt.asUintN(bits, int).toString();
-    };
-    
-    const tick_lower = asUintN(BigInt(newRange.tickLower));
-    const tick_upper = asUintN(BigInt(newRange.tickUpper));
+    // Convert signed ticks to u32 using BigInt.asUintN (SDK pattern)
+    const tickLowerU32 = Number(BigInt.asUintN(32, BigInt(newRange.tickLower)));
+    const tickUpperU32 = Number(BigInt.asUintN(32, BigInt(newRange.tickUpper)));
     
     const newPosition = ptb.moveCall({
       target: `${packageId}::pool_script::open_position`,
@@ -205,8 +201,8 @@ export class RebalanceService {
       arguments: [
         ptb.object(globalConfigId),
         ptb.object(pool.id),
-        ptb.pure.u32(Number(tick_lower)),
-        ptb.pure.u32(Number(tick_upper)),
+        ptb.pure.u32(tickLowerU32),
+        ptb.pure.u32(tickUpperU32),
       ],
     });
     logger.info('  ✓ Captured: newPosition NFT');
