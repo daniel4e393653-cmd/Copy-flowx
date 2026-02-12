@@ -18,6 +18,8 @@ export interface MonitorReport {
     tickLower: number;
     tickUpper: number;
   };
+  shouldRebalance: boolean;
+  reason: string;
 }
 
 export class MonitorService {
@@ -53,6 +55,19 @@ export class MonitorService {
       pool.tickSpacing
     );
     
+    // Determine if rebalancing should happen
+    let shouldRebalance = false;
+    let reason = 'Position is in range';
+    
+    if (!inRange) {
+      if (Math.abs(deviation) >= this.config.rebalanceThresholdPercent) {
+        shouldRebalance = true;
+        reason = `Price moved ${deviation.toFixed(2)}% outside range (threshold: ${this.config.rebalanceThresholdPercent}%)`;
+      } else {
+        reason = `Price out of range but deviation ${deviation.toFixed(2)}% below threshold ${this.config.rebalanceThresholdPercent}%`;
+      }
+    }
+    
     const report: MonitorReport = {
       timestamp: Date.now(),
       pool,
@@ -61,6 +76,8 @@ export class MonitorService {
       isInRange: inRange,
       priceDeviation: deviation,
       suggestedNewRange,
+      shouldRebalance,
+      reason,
     };
     
     this.logReport(report);
@@ -80,9 +97,11 @@ export class MonitorService {
       logger.warn(`Price Deviation: ${report.priceDeviation.toFixed(2)}%`);
       logger.warn(`Suggested New Range: [${report.suggestedNewRange.tickLower}, ${report.suggestedNewRange.tickUpper}]`);
       
-      if (Math.abs(report.priceDeviation) >= this.config.rebalanceThresholdPercent) {
-        logger.error(`ALERT: Deviation exceeds threshold (${this.config.rebalanceThresholdPercent}%)`);
-        logger.error('Manual rebalancing recommended');
+      if (report.shouldRebalance) {
+        logger.error(`ALERT: ${report.reason}`);
+        logger.error('Rebalancing will be triggered');
+      } else {
+        logger.warn(`No rebalance: ${report.reason}`);
       }
     } else {
       logger.info('Position is healthy');
