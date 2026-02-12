@@ -103,6 +103,7 @@ export class CetusPositionProvider implements IPositionProvider {
     }
 
     // Validate tick range before returning
+    // Per requirements: positions with tickLower === 0 OR tickUpper === 0 are invalid
     if (largestPosition.tickLower === 0 || largestPosition.tickUpper === 0) {
       console.warn("Invalid position ticks detected");
       return null;
