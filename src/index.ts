@@ -1,9 +1,10 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import { BPS, Percent, Protocol } from "./utils/sdkTypes";
 import { Worker } from "./Worker";
 import { removeTrailingZeros } from "./utils/stringUtils";
 import { ClmmProtocol } from "./constants";
-
-require("dotenv").config({});
 
 // Validate required environment variables
 if (!process.env.PROTOCOL) {
