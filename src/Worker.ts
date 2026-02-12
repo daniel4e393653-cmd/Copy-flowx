@@ -187,6 +187,7 @@ export class Worker {
 
     // Validate position tick range before proceeding
     // Check for falsy values (0, undefined, null) or invalid range
+    // Note: 0 indicates parsing failure in parseTickIndex(), so it's treated as invalid
     if (!this.position.tickLower || !this.position.tickUpper || this.position.tickLower >= this.position.tickUpper) {
       this.logger.warn("Skipping rebalance due to invalid tick range");
       return;
