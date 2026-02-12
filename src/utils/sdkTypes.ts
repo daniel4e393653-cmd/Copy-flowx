@@ -5,6 +5,9 @@
 
 import BN from "bn.js";
 
+// Type aliases
+export type BigintIsh = BN | string | number;
+
 // Constants
 export const BPS = new BN(10000); // Basis points (10,000 = 100%)
 export const ONE = new BN(1);
@@ -169,6 +172,23 @@ export class Fraction {
     const denominator = this.denominator.mul(other.denominator);
     return new Fraction(numerator, denominator);
   }
+
+  /**
+   * Divide by another fraction
+   */
+  divide(other: Fraction): Fraction {
+    return new Fraction(
+      this.numerator.mul(other.denominator),
+      this.denominator.mul(other.numerator)
+    );
+  }
+
+  /**
+   * Get as fraction (returns self for compatibility)
+   */
+  get asFraction(): Fraction {
+    return this;
+  }
 }
 
 /**
@@ -219,6 +239,13 @@ export class Price<TBase extends Coin = Coin, TQuote extends Coin = Coin> {
 
   toSignificant(decimalPlaces: number = 6): string {
     return new Fraction(this.numerator, this.denominator).toFixed(decimalPlaces);
+  }
+
+  /**
+   * Get as fraction for compatibility
+   */
+  get asFraction(): Fraction {
+    return new Fraction(this.numerator, this.denominator);
   }
 }
 

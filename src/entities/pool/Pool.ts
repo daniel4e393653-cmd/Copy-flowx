@@ -1,6 +1,6 @@
 import BN from "bn.js";
 import { BigintIsh, ClmmProtocol } from "../../constants";
-import { Coin } from "../../utils/sdkTypes";
+import { Coin, Fraction } from "../../utils/sdkTypes";
 
 export interface PoolReward {
   coin: Coin;
@@ -76,5 +76,27 @@ export class Pool {
 
   get coinY(): Coin {
     return this.coins[1];
+  }
+
+  /**
+   * Get the ratio of liquidity for a given tick range
+   * This is used by ZapCalculator to determine token ratios
+   */
+  getRatio(tickLower: number, tickUpper: number): Fraction {
+    // Simplified implementation for now
+    // TODO: Implement proper tick math for ratio calculation
+    const currentTick = this.tickCurrent;
+    
+    // If current tick is below range, all in token Y
+    if (currentTick < tickLower) {
+      return new Fraction(0, 1);
+    }
+    // If current tick is above range, all in token X (use large number instead of infinity)
+    if (currentTick >= tickUpper) {
+      return new Fraction(Number.MAX_SAFE_INTEGER, 1);
+    }
+    // If in range, calculate ratio based on current price
+    // Simplified: return 1:1 ratio
+    return new Fraction(1, 1);
   }
 }
