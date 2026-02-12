@@ -271,9 +271,14 @@ export class RebalanceService {
     const sqrtPriceLower = tickToSqrtPrice(newRange.tickLower);
     const sqrtPriceUpper = tickToSqrtPrice(newRange.tickUpper);
     
-    // Sqrt price limits for swaps
+    // Sqrt price limits for swaps (from Cetus SDK - minimum and maximum valid sqrt prices)
+    // MIN_SQRT_PRICE: sqrt(1.0001^MIN_TICK_INDEX) = sqrt price at minimum tick
+    // MAX_SQRT_PRICE: sqrt(1.0001^MAX_TICK_INDEX) = sqrt price at maximum tick
     const MIN_SQRT_PRICE = '4295048016';
     const MAX_SQRT_PRICE = '79226673515401279992447579055';
+    
+    // Maximum u64 value for swap amount (swap all available coins)
+    const U64_MAX = '18446744073709551615';
     
     // CRITICAL FIX: pool_script_v2 swap functions require BOTH coins as input
     // The coin we're not swapping should be zero-value
@@ -294,7 +299,7 @@ export class RebalanceService {
           zeroCoinA,  // coin_a (not consumed, zero value)
           coinB,      // coin_b (consumed)
           ptb.pure.bool(true), // by_amount_in: swap exact amount of B
-          ptb.pure.u64('18446744073709551615'), // amount: u64::MAX to swap all
+          ptb.pure.u64(U64_MAX), // amount: u64::MAX to swap all
           ptb.pure.u64('0'), // amount_limit: minimum output amount
           ptb.pure.u128(MAX_SQRT_PRICE), // sqrt_price_limit
           ptb.object(SUI_CLOCK_OBJECT_ID),
@@ -329,7 +334,7 @@ export class RebalanceService {
           coinA,      // coin_a (consumed)
           zeroCoinB,  // coin_b (not consumed, zero value)
           ptb.pure.bool(true), // by_amount_in: swap exact amount of A
-          ptb.pure.u64('18446744073709551615'), // amount: u64::MAX to swap all
+          ptb.pure.u64(U64_MAX), // amount: u64::MAX to swap all
           ptb.pure.u64('0'), // amount_limit: minimum output amount
           ptb.pure.u128(MIN_SQRT_PRICE), // sqrt_price_limit
           ptb.object(SUI_CLOCK_OBJECT_ID),
