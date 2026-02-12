@@ -1,2 +1,58 @@
-// Main entry point
-console.log('Hello from Copy-flowx!');
+import dotenv from 'dotenv';
+dotenv.config();
+
+import { loadConfig, validateConfig } from './config';
+import { logger } from './utils/logger';
+import { RebalancingBot } from './services/bot';
+import fs from 'fs';
+import path from 'path';
+
+const logsDir = path.join(__dirname, '../logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
+
+async function main(): Promise<void> {
+  try {
+    logger.info('=== Cetus CLMM Rebalancing Bot ===');
+    
+    logger.info('Loading configuration...');
+    const config = loadConfig();
+    
+    logger.info('Validating configuration...');
+    validateConfig(config);
+    
+    logger.info('Configuration loaded successfully');
+    
+    const bot = new RebalancingBot(config);
+    
+    await bot.start();
+    
+    process.on('SIGINT', () => {
+      logger.info('Received SIGINT signal');
+      bot.stop();
+      process.exit(0);
+    });
+    
+    process.on('SIGTERM', () => {
+      logger.info('Received SIGTERM signal');
+      bot.stop();
+      process.exit(0);
+    });
+    
+    process.on('uncaughtException', (error) => {
+      logger.error('Uncaught exception', error);
+      bot.stop();
+      process.exit(1);
+    });
+    
+    process.on('unhandledRejection', (reason, promise) => {
+      logger.error('Unhandled rejection', { reason, promise });
+    });
+  } catch (error) {
+    logger.error('Fatal error starting bot', error);
+    process.exit(1);
+  }
+}
+
+main();

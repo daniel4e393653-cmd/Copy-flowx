@@ -1,22 +1,29 @@
 {
   "name": "copy-flowx",
   "version": "1.0.0",
-  "description": "",
+  "description": "Production-ready Concentrated Liquidity Rebalancing Bot for Cetus CLMM on Sui",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsc && node dist/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "npm run build && npm run start",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/daniel4e393653-cmd/Copy-flowx.git"
   },
-  "keywords": [],
+  "keywords": [
+    "sui",
+    "cetus",
+    "clmm",
+    "defi",
+    "rebalancing",
+    "bot"
+  ],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/daniel4e393653-cmd/Copy-flowx/issues"
   },
@@ -24,5 +31,14 @@
   "devDependencies": {
     "@types/node": "^25.2.3",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@cetusprotocol/cetus-sui-clmm-sdk": "^5.4.0",
+    "@mysten/sui": "^1.18.0",
+    "dotenv": "^17.2.4",
+    "winston": "^3.19.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
