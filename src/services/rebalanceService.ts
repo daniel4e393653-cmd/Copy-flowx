@@ -287,6 +287,7 @@ export class RebalanceService {
     
     // SDK uses router module for swaps, with both coins as input
     // The coin we're not swapping should be zero-value
+    // Returns: [Coin<A>, Coin<B>] where one is the output and the other is remainder
     
     if (sqrtPriceCurrent < sqrtPriceLower) {
       // Price below range - need token A
@@ -297,12 +298,13 @@ export class RebalanceService {
       const zeroCoinA = coinWithBalance({ type: pool.coinTypeA, balance: 0 })(ptb);
       
       // Using SDK format: router::swap
-      const [swappedCoinA, swappedCoinB] = ptb.moveCall({
+      // Returns [Coin<A> with swapped amount, Coin<B> with remainder]
+      const [swappedCoinA, remainderCoinB] = ptb.moveCall({
         target: `${packageId}::router::swap`,
         arguments: [
           ptb.object(globalConfigId),
           ptb.object(pool.id),
-          zeroCoinA,  // coin_a (zero value, not consumed)
+          zeroCoinA,  // coin_a (zero value input)
           coinB,      // coin_b (consumed)
           ptb.pure.bool(false), // a2b: false = B to A
           ptb.pure.bool(true), // by_amount_in: swap exact amount of B
@@ -318,10 +320,9 @@ export class RebalanceService {
       ptb.mergeCoins(coinA, [swappedCoinA]);
       logger.info('  ✓ Swapped: coinB consumed, output merged into coinA');
       
-      // swappedCoinB should be the leftover/change from coinB (or zero)
-      // Use it as the new coinB
-      logger.info('  ✓ Using swapped coinB as new coinB');
-      return { coinA, coinB: swappedCoinB };
+      // Return coinA with all swapped funds, and remainderCoinB (should be zero/dust)
+      logger.info('  ✓ Using remainderCoinB (should be minimal after swapping all)');
+      return { coinA, coinB: remainderCoinB };
       
     } else if (sqrtPriceCurrent > sqrtPriceUpper) {
       // Price above range - need token B
@@ -332,13 +333,14 @@ export class RebalanceService {
       const zeroCoinB = coinWithBalance({ type: pool.coinTypeB, balance: 0 })(ptb);
       
       // Using SDK format: router::swap
-      const [swappedCoinA, swappedCoinB] = ptb.moveCall({
+      // Returns [Coin<A> with remainder, Coin<B> with swapped amount]
+      const [remainderCoinA, swappedCoinB] = ptb.moveCall({
         target: `${packageId}::router::swap`,
         arguments: [
           ptb.object(globalConfigId),
           ptb.object(pool.id),
           coinA,      // coin_a (consumed)
-          zeroCoinB,  // coin_b (zero value, not consumed)
+          zeroCoinB,  // coin_b (zero value input)
           ptb.pure.bool(true), // a2b: true = A to B
           ptb.pure.bool(true), // by_amount_in: swap exact amount of A
           ptb.pure.u64(U64_MAX), // amount: u64::MAX to swap all
@@ -353,10 +355,9 @@ export class RebalanceService {
       ptb.mergeCoins(coinB, [swappedCoinB]);
       logger.info('  ✓ Swapped: coinA consumed, output merged into coinB');
       
-      // swappedCoinA should be the leftover/change from coinA (or zero)
-      // Use it as the new coinA
-      logger.info('  ✓ Using swapped coinA as new coinA');
-      return { coinA: swappedCoinA, coinB };
+      // Return remainderCoinA (should be zero/dust) and coinB with all swapped funds
+      logger.info('  ✓ Using remainderCoinA (should be minimal after swapping all)');
+      return { coinA: remainderCoinA, coinB };
       
     } else {
       // Price in range - need both tokens in proportion
