@@ -221,7 +221,7 @@ export class CetusPositionProvider implements IPositionProvider {
     const fields = content.fields as any;
 
     // Log the FULL raw object for debugging
-    console.log(JSON.stringify(fields, null, 2));
+    logger.debug(JSON.stringify(fields, null, 2));
 
     // Extract owner
     let owner = "";
@@ -258,19 +258,18 @@ export class CetusPositionProvider implements IPositionProvider {
     }
 
     // Handle tick indices with comprehensive fallback chain
-    const tickLower =
-        fields.tick_lower_index ??
-        fields.tickLowerIndex ??
-        fields.tick_lower ??
-        fields.lower_tick ??
-        fields.tick_lower_index?.bits;
+    // Check if tick_lower_index/tick_upper_index are objects with bits field first
+    let tickLower = fields.tick_lower_index;
+    if (tickLower && typeof tickLower === "object" && "bits" in tickLower) {
+        tickLower = tickLower.bits;
+    }
+    tickLower = tickLower ?? fields.tickLowerIndex ?? fields.tick_lower ?? fields.lower_tick;
 
-    const tickUpper =
-        fields.tick_upper_index ??
-        fields.tickUpperIndex ??
-        fields.tick_upper ??
-        fields.upper_tick ??
-        fields.tick_upper_index?.bits;
+    let tickUpper = fields.tick_upper_index;
+    if (tickUpper && typeof tickUpper === "object" && "bits" in tickUpper) {
+        tickUpper = tickUpper.bits;
+    }
+    tickUpper = tickUpper ?? fields.tickUpperIndex ?? fields.tick_upper ?? fields.upper_tick;
 
     // Convert to numbers
     const parsedTickLower = Number(tickLower);
