@@ -105,8 +105,8 @@ export class RebalanceService {
   ): Promise<Transaction> {
     const ptb = new Transaction();
     const sdk = this.cetusService.getSDK();
-    const packageId = sdk.sdkOptions.cetus_config.package_id;
-    const globalConfigId = sdk.sdkOptions.cetus_config.config!.global_config_id;
+    const packageId = sdk.sdkOptions.integrate.published_at;
+    const globalConfigId = sdk.sdkOptions.clmm_pool.config!.global_config_id;
     
     logger.info('Building atomic PTB with all operations...');
     logger.info('=== COIN OBJECT FLOW TRACE ===');
