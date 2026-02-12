@@ -4,6 +4,7 @@ import { Transaction } from '@mysten/sui/transactions';
 import { BotConfig } from '../types';
 import { logger } from '../utils/logger';
 import { withRetry } from '../utils/retry';
+import { isTypeArgError } from '../utils/typeArgNormalizer';
 
 export class SuiClientService {
   private client: SuiClient;
@@ -89,36 +90,80 @@ export class SuiClientService {
   
   async executeTransactionWithoutSimulation(tx: Transaction): Promise<SuiTransactionBlockResponse> {
     try {
-      return await withRetry(
-        async () => {
-          const result = await this.client.signAndExecuteTransaction({
-            transaction: tx,
-            signer: this.keypair,
-            options: {
-              showEffects: true,
-              showEvents: true,
-              showObjectChanges: true,
-            },
-          });
-          
-          if (result.effects?.status.status !== 'success') {
-            throw new Error(
-              `Transaction execution failed: ${result.effects?.status.error || 'Unknown error'}`
-            );
-          }
-          
-          logger.info(`Transaction executed successfully: ${result.digest}`);
-          return result;
-        },
-        this.config.maxRetries,
-        this.config.minRetryDelayMs,
-        this.config.maxRetryDelayMs,
-        'Transaction execution'
-      );
+      // Use configurable maxRetries from BotConfig
+      // Note: This is specifically for transaction execution retries (up to 5 per requirement)
+      // We use the config value but ensure it's at least 5 as per the requirement
+      const maxRetries = Math.max(this.config.maxRetries, 5);
+      
+      // Attempt execution with retry logic
+      return await this.executeWithRetry(tx, maxRetries);
     } catch (error) {
-      logger.error('Transaction execution failed', error);
+      logger.error('Transaction execution failed after all retries', error);
       throw error;
     }
+  }
+  
+  /**
+   * Execute transaction with retry logic and exponential backoff
+   * Retries up to maxRetries times (total maxRetries attempts, not maxRetries+1)
+   */
+  private async executeWithRetry(
+    tx: Transaction,
+    maxRetries: number
+  ): Promise<SuiTransactionBlockResponse> {
+    let lastError: Error = new Error('Transaction execution failed with unknown error');
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Execute the transaction
+        const result = await this.client.signAndExecuteTransaction({
+          transaction: tx,
+          signer: this.keypair,
+          options: {
+            showEffects: true,
+            showEvents: true,
+            showObjectChanges: true,
+          },
+        });
+        
+        if (result.effects?.status.status !== 'success') {
+          throw new Error(
+            `Transaction execution failed: ${result.effects?.status.error || 'Unknown error'}`
+          );
+        }
+        
+        logger.info(`Transaction executed successfully: ${result.digest}`);
+        return result;
+        
+      } catch (error) {
+        lastError = error as Error;
+        
+        // Check if this is a type argument related error
+        const isTypeError = isTypeArgError(lastError);
+        
+        if (attempt < maxRetries) {
+          // Calculate exponential backoff delay
+          const baseDelay = this.config.minRetryDelayMs || 1000;
+          const maxDelay = this.config.maxRetryDelayMs || 30000;
+          const delay = Math.min(
+            baseDelay * Math.pow(2, attempt - 1),
+            maxDelay
+          );
+          
+          const errorType = isTypeError ? 'Type argument error' : 'Transaction error';
+          logger.warn(
+            `${errorType} on attempt ${attempt}/${maxRetries}: ${lastError.message}. ` +
+            `Retrying with exponential backoff in ${delay}ms...`
+          );
+          
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          logger.error(`Transaction execution failed after ${maxRetries} attempts`);
+        }
+      }
+    }
+    
+    throw lastError;
   }
   
   async getGasPrice(): Promise<bigint> {
