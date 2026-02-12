@@ -135,8 +135,16 @@ export class RebalanceService {
     }
     logger.debug('Type argument validation passed');
     
+    // Create zero coins upfront (before any moveCall operations)
+    // This ensures proper command indexing for all subsequent operations
+    logger.info('Creating zero-balance coins for transaction operations...');
+    const zeroCoinA = coinWithBalance({ type: normalizedCoinTypeA, balance: 0 })(ptb);
+    const zeroCoinB = coinWithBalance({ type: normalizedCoinTypeB, balance: 0 })(ptb);
+    logger.info('  ✓ Zero coins created');
+    
     // Step 1: Remove liquidity from old position
     // Use SDK builder pattern: pool_script::remove_liquidity
+    // Returns tuple (Coin<A>, Coin<B>) - use array destructuring
     logger.info('Step 1: Remove liquidity → returns [coinA, coinB]');
     const [removedCoinA, removedCoinB] = ptb.moveCall({
       target: `${packageId}::pool_script::remove_liquidity`,
@@ -155,10 +163,9 @@ export class RebalanceService {
     
     // Step 2: Collect fees from old position
     // Use SDK builder pattern: pool_script_v2::collect_fee
+    // Returns tuple (Coin<A>, Coin<B>) - use array destructuring
+    // Uses the zero coins created earlier
     logger.info('Step 2: Collect fees → returns [feeCoinA, feeCoinB]');
-    
-    const zeroCoinA = coinWithBalance({ type: normalizedCoinTypeA, balance: 0 })(ptb);
-    const zeroCoinB = coinWithBalance({ type: normalizedCoinTypeB, balance: 0 })(ptb);
     
     const [feeCoinA, feeCoinB] = ptb.moveCall({
       target: `${packageId}::pool_script_v2::collect_fee`,
@@ -181,6 +188,7 @@ export class RebalanceService {
     
     // Step 4: Close old position
     // Use SDK builder pattern: pool_script::close_position
+    // Note: close_position only takes config, pool, and position - no amounts or clock
     logger.info('Step 4: Close old position (NFT cleanup)');
     ptb.moveCall({
       target: `${packageId}::pool_script::close_position`,
@@ -189,9 +197,6 @@ export class RebalanceService {
         ptb.object(globalConfigId),
         ptb.object(pool.id),
         ptb.object(position.id),
-        ptb.pure.u64(minAmountA.toString()),
-        ptb.pure.u64(minAmountB.toString()),
-        ptb.object(SUI_CLOCK_OBJECT_ID),
       ],
     });
     logger.info('  ✓ Position closed');
@@ -260,6 +265,16 @@ export class RebalanceService {
     logger.info('=== END COIN OBJECT FLOW TRACE ===');
     logger.info('NO COIN OBJECTS DROPPED OR UNTRANSFERRED');
     
+    // Add PTB validation: Print commands before build (as requested in problem statement)
+    // Use debug level to avoid performance overhead in production
+    const ptbData = ptb.getData();
+    logger.debug('=== PTB COMMANDS VALIDATION ===');
+    logger.debug(`Total commands: ${ptbData.commands.length}`);
+    ptbData.commands.forEach((cmd, idx) => {
+      logger.debug(`Command ${idx}: ${JSON.stringify(cmd)}`);
+    });
+    logger.debug('=== END PTB COMMANDS ===');
+    
     return ptb;
   }
   
@@ -293,6 +308,7 @@ export class RebalanceService {
       const zeroCoinA = coinWithBalance({ type: normalizedCoinTypeA, balance: 0 })(ptb);
       
       // Use SDK builder pattern: router::swap
+      // Returns tuple (Coin<A>, Coin<B>) - use array destructuring
       const [swappedCoinA, remainderCoinB] = ptb.moveCall({
         target: `${packageId}::router::swap`,
         typeArguments: [normalizedCoinTypeA, normalizedCoinTypeB],
@@ -322,6 +338,7 @@ export class RebalanceService {
       const zeroCoinB = coinWithBalance({ type: normalizedCoinTypeB, balance: 0 })(ptb);
       
       // Use SDK builder pattern: router::swap
+      // Returns tuple (Coin<A>, Coin<B>) - use array destructuring
       const [remainderCoinA, swappedCoinB] = ptb.moveCall({
         target: `${packageId}::router::swap`,
         typeArguments: [normalizedCoinTypeA, normalizedCoinTypeB],
