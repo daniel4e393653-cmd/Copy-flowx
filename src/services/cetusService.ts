@@ -4,6 +4,16 @@ import { BotConfig, Pool, Position } from '../types';
 import { logger } from '../utils/logger';
 import { withRetry } from '../utils/retry';
 
+// Type for coin type that may be string or object from Cetus SDK
+type CoinTypeValue = string | {
+  source_address?: string;
+  full_address?: string;
+  address?: string;
+  module?: string;
+  name?: string;
+  type?: string;
+};
+
 export class CetusService {
   private sdk: CetusClmmSDK;
   private config: BotConfig;
@@ -63,7 +73,7 @@ export class CetusService {
     }
   }
   
-  private extractCoinType(coinType: any): string {
+  private extractCoinType(coinType: CoinTypeValue): string {
     // If it's already a string, return it
     if (typeof coinType === 'string') {
       return coinType;
