@@ -1,37 +1,40 @@
-# Cetus CLMM Position Monitor
+# Cetus CLMM Position Manager
 
-A **monitoring-only** tool for Cetus Protocol CLMM positions on Sui blockchain.
+A production-ready tool for managing Cetus Protocol CLMM positions on Sui blockchain.
 
-⚠️ **IMPORTANT: This tool does NOT execute trades automatically.**
+## Features
 
-## What It Does
-
+### Monitoring Mode (Default - Safe)
 - Monitors your Cetus CLMM position health
 - Checks if current price is within position range
 - Calculates price deviation when out of range
 - Suggests optimal rebalancing ranges
 - Alerts when deviation exceeds threshold
 - Logs all data for manual review
+- **No transactions executed**
 
-## What It Does NOT Do
+### Automated Rebalancing Mode (Advanced)
+- **⚠️ Executes transactions automatically**
+- Uses atomic Programmable Transaction Blocks (PTB)
+- All operations in single transaction (all-or-nothing)
+- Proper slippage protection
+- Gas safety checks
+- Automatic rebalancing when thresholds exceeded
 
-- ❌ Does not execute rebalancing transactions
-- ❌ Does not swap tokens
-- ❌ Does not add/remove liquidity
-- ❌ Does not modify your position
+## Atomic Rebalancing Implementation
 
-## Why Monitoring Only?
+The rebalancing uses a **single Programmable Transaction Block** with all operations:
 
-Safe automated rebalancing requires:
+1. Remove liquidity from old position
+2. Collect accumulated fees
+3. Merge liquidity with fees
+4. Close old position NFT
+5. Swap tokens to optimal ratio (if needed)
+6. Open new position at current price
+7. Add liquidity to new position
+8. Transfer new position to wallet
 
-1. **Proper coin object selection and handling** - Complex wallet coin management
-2. **Real slippage calculations** - Based on actual pool reserves and depth
-3. **Atomic transaction sequencing** - Remove → swap → add without partial failures
-4. **MEV protection** - Price impact analysis and sandwich attack prevention
-5. **Decimal precision handling** - Proper scaling for different token decimals
-
-Rather than implementing these features unsafely, this tool provides monitoring
-so you can manually execute rebalancing when needed.
+**All operations execute atomically** - if any step fails, the entire transaction reverts (no partial state).
 
 ## Installation
 
@@ -45,39 +48,168 @@ Copy `.env.example` to `.env`:
 
 ```bash
 # Required
-PRIVATE_KEY=0x...          # For wallet address only (no transactions executed)
-POOL_ID=0x...             # Cetus pool to monitor
+PRIVATE_KEY=0x...          # Your wallet private key
+POOL_ID=0x...             # Cetus pool to manage
 POSITION_ID=0x...         # Your position NFT ID
+
+# Mode selection
+ENABLE_REBALANCING=false  # Set to 'true' for automated rebalancing
 
 # Optional
 RPC_URL=https://fullnode.mainnet.sui.io:443
 CHECK_INTERVAL_MS=60000   # Check every 60 seconds
-REBALANCE_THRESHOLD_PERCENT=2.0  # Alert threshold
-RANGE_WIDTH_PERCENT=5.0   # Suggested range width
+REBALANCE_THRESHOLD_PERCENT=2.0  # Rebalance if 2% outside range
+RANGE_WIDTH_PERCENT=5.0   # New position will be 5% wide
+MAX_SLIPPAGE_PERCENT=1.0  # Maximum acceptable slippage
+MAX_GAS_PRICE=1000000000  # Maximum gas price in MIST
 ```
 
 ## Usage
 
-```bash
-# Build
-npm run build
+### Monitoring Only (Default - Recommended)
 
-# Run
+```bash
+npm run build
 npm start
 ```
 
 The bot will:
-1. Check position every 60 seconds (configurable)
-2. Log current state and health
-3. Alert if deviation exceeds threshold
-4. Suggest optimal rebalancing ranges
+- Check position every 60 seconds
+- Log current state and health
+- Alert if deviation exceeds threshold
+- **NOT execute any transactions**
 
-## Output Example
+### Automated Rebalancing (Advanced)
+
+⚠️ **WARNING**: This mode will execute transactions and spend gas automatically.
+
+Set in `.env`:
+```bash
+ENABLE_REBALANCING=true
+```
+
+Then run:
+```bash
+npm run build
+npm start
+```
+
+The bot will:
+- Monitor position continuously
+- Automatically rebalance when threshold exceeded
+- Execute atomic PTB transactions
+- Handle slippage and gas safety
+
+## How It Works
+
+### Position Monitoring
+
+1. Fetches pool and position data from Cetus
+2. Checks if current price is within position range
+3. Calculates price deviation percentage
+4. Determines if rebalancing is needed
+
+### Atomic Rebalancing (when enabled)
+
+When price moves beyond threshold:
+
+```
+Current tick: 12000
+Position range: [10000, 11000]
+Deviation: 10% (exceeds 2% threshold)
+
+Action: Atomic rebalance
+- Remove all liquidity
+- Collect fees
+- Close old position
+- Calculate new range [11500, 12500] (centered on current price)
+- Swap tokens if needed
+- Open new position
+- Add liquidity
+
+Result: Position centered on current price, earning fees again
+```
+
+### Safety Features
+
+#### Monitoring Mode
+✅ Read-only operations  
+✅ No transaction execution  
+✅ No gas spending  
+✅ Zero risk  
+
+#### Rebalancing Mode
+✅ Atomic PTB (all-or-nothing)  
+✅ Slippage protection on all operations  
+✅ Gas price checks before execution  
+✅ Tick spacing validation  
+✅ Bounds checking  
+✅ Automatic rollback on failure  
+
+## Project Structure
+
+```
+src/
+├── config/               # Environment validation
+├── services/
+│   ├── bot.ts               # Monitoring-only orchestrator
+│   ├── rebalancingBot.ts    # Automated rebalancing orchestrator
+│   ├── rebalanceService.ts  # Atomic PTB rebalancing logic
+│   ├── cetusService.ts      # Cetus SDK integration
+│   ├── monitorService.ts    # Position monitoring
+│   └── suiClient.ts         # Sui RPC client
+├── utils/
+│   ├── logger.ts            # Winston logging
+│   ├── retry.ts             # Exponential backoff
+│   └── tickMath.ts          # CLMM calculations
+└── types/                # TypeScript interfaces
+```
+
+## Technical Details
+
+### CLMM Mathematics
+
+Uses verified Uniswap V3 / Cetus formulas:
+- Tick to sqrt price conversion
+- Amount calculations from liquidity
+- Price-based range calculations (not tick-based)
+- Proper Q64 fixed-point arithmetic
+
+### Atomic Transaction Structure
+
+Single PTB with chained operations:
+```typescript
+const ptb = new Transaction();
+
+// All operations use returned coin objects
+const [coinA, coinB] = ptb.moveCall({ target: 'remove_liquidity', ... });
+const [feeA, feeB] = ptb.moveCall({ target: 'collect_fee', ... });
+ptb.mergeCoins(coinA, [feeA]);
+// ... continue chaining
+
+// Single execution
+await client.signAndExecuteTransaction({ transaction: ptb });
+```
+
+### Error Handling
+
+**Monitoring Mode**: Logs errors, continues running
+
+**Rebalancing Mode**: 
+- Pre-validates gas price
+- Validates tick spacing
+- Calculates expected amounts
+- If any validation fails → abort before execution
+- If PTB fails → entire transaction reverts (clean state)
+
+## Examples
+
+### Monitor Output
 
 ```
 === Position Monitor Report ===
-Pool: 0x...
-Position: 0x...
+Pool: 0xabc...
+Position: 0xdef...
 Current Tick: 12500
 Position Range: [12000, 13000]
 In Range: YES
@@ -91,78 +223,65 @@ In Range: NO
 Price Deviation: 3.45%
 Suggested New Range: [12450, 12950]
 ALERT: Deviation exceeds threshold (2%)
-Manual rebalancing recommended
+Rebalancing will be triggered
 ```
 
-## Manual Rebalancing
-
-When the monitor alerts you:
-
-1. Review the suggested range
-2. Use Cetus UI or SDK to:
-   - Remove liquidity from old position
-   - Close old position
-   - Create new position with suggested range
-   - Add liquidity
-
-## Project Structure
+### Rebalance Output
 
 ```
-src/
-├── config/           # Environment validation
-├── services/
-│   ├── bot.ts           # Main monitoring orchestrator
-│   ├── cetusService.ts  # Pool/position data fetching
-│   ├── suiClient.ts     # Sui RPC client
-│   └── monitorService.ts # Position monitoring logic
-├── utils/
-│   ├── logger.ts        # Winston logging
-│   ├── retry.ts         # Exponential backoff
-│   └── tickMath.ts      # CLMM calculations
-└── types/           # TypeScript interfaces
+=== Starting Atomic PTB Rebalance ===
+Current tick: 12500
+Old range: [10000, 11000]
+New range: [12000, 13000]
+Expected amounts: A=1000000, B=500000
+Min amounts (1% slippage): A=990000, B=495000
+Building atomic PTB with all operations...
+Step 1: Remove liquidity
+Step 2: Collect fees
+Step 3: Merge coins
+Step 4: Close old position
+Step 5: Swap to optimal ratio (if needed)
+Step 6: Open new position
+Step 7: Add liquidity to new position
+Step 8: Transfer new position to sender
+Executing atomic PTB...
+Rebalance successful! Digest: 0x123...
+=== Atomic PTB Rebalance Complete ===
 ```
 
-## Safety Features
+## Troubleshooting
 
-✅ Read-only operations  
-✅ No transaction execution  
-✅ Validated tick math  
-✅ Proper bounds checking  
-✅ No unsafe type conversions  
-✅ Comprehensive error handling  
+### "Gas price too high"
+- Wait for lower gas prices
+- Increase `MAX_GAS_PRICE` in config
 
-## Technical Details
+### "Slippage too high"
+- Price is moving too fast
+- Increase `MAX_SLIPPAGE_PERCENT` (carefully)
+- Wait for calmer market conditions
 
-- Uses Cetus SDK for pool/position data
-- Proper CLMM tick mathematics (Uniswap V3 compatible)
-- Price-based range calculations (not tick-based)
-- Tick spacing validation
-- Bounds checking on all calculations
+### "Tick spacing validation failed"
+- Bug in range calculation
+- Report issue with pool details
+
+## Documentation
+
+- **FAILURE_SCENARIOS.md** - Analysis of failure cases and why PTB is safe
+- **ATOMIC_REBALANCING_DESIGN.md** - Complete technical design
+- **STRUCTURAL_REVIEW.md** - Why previous implementation was removed
+- **SUMMARY.md** - Project overview
+
+## Safety First
+
+**Start with monitoring mode** to understand how the bot works before enabling automated rebalancing.
+
+**Automated rebalancing** executes real transactions with real funds. Only enable after:
+1. Understanding the code
+2. Testing on testnet (if available)
+3. Monitoring mode works correctly
+4. Comfortable with gas costs
+5. Understanding MEV risks
 
 ## License
 
 ISC
-
-## Failure Scenarios & Atomic Design
-
-This tool is monitoring-only by design. For documentation on why automated rebalancing was removed and how it could be implemented safely, see:
-
-- **[FAILURE_SCENARIOS.md](FAILURE_SCENARIOS.md)** - Comprehensive analysis of all failure cases (swap fails, partial execution, gas spikes, price movement) and why non-atomic operations are unsafe
-- **[ATOMIC_REBALANCING_DESIGN.md](ATOMIC_REBALANCING_DESIGN.md)** - Complete design for safe implementation using Sui's Programmable Transaction Blocks (PTB)
-
-### Key Insights
-
-**Problem**: Multi-transaction rebalancing has inherent risks:
-- Swap can fail after liquidity removed (stuck with no position)
-- Gas can spike mid-execution (partial completion)
-- Price can move between operations (stale calculations)
-- MEV attacks can extract value (front-running/sandwiching)
-
-**Solution**: Atomic PTB execution:
-- All operations in single transaction
-- All succeed or all fail (no partial state)
-- Automatic rollback on failure
-- Single gas estimation
-- MEV resistant
-
-**Status**: Design complete, implementation requires extensive testing, coin handling logic, and security audit.
