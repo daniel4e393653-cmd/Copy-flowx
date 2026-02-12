@@ -257,27 +257,31 @@ export class CetusPositionProvider implements IPositionProvider {
       }
     }
 
-    // Handle tick indices with comprehensive fallback chain
-    // Check if tick_lower_index/tick_upper_index are objects with bits field first
-    let tickLower = fields.tick_lower_index;
-    if (tickLower && typeof tickLower === "object" && "bits" in tickLower) {
-        tickLower = tickLower.bits;
-    }
-    tickLower = tickLower ?? fields.tickLowerIndex ?? fields.tick_lower ?? fields.lower_tick;
+    // Extract raw values safely
+    const rawTickLower =
+        fields.tick_lower_index?.bits ??
+        fields.tick_lower_index ??
+        fields.tickLowerIndex?.bits ??
+        fields.tickLowerIndex ??
+        fields.tick_lower ??
+        fields.lower_tick;
 
-    let tickUpper = fields.tick_upper_index;
-    if (tickUpper && typeof tickUpper === "object" && "bits" in tickUpper) {
-        tickUpper = tickUpper.bits;
-    }
-    tickUpper = tickUpper ?? fields.tickUpperIndex ?? fields.tick_upper ?? fields.upper_tick;
+    const rawTickUpper =
+        fields.tick_upper_index?.bits ??
+        fields.tick_upper_index ??
+        fields.tickUpperIndex?.bits ??
+        fields.tickUpperIndex ??
+        fields.tick_upper ??
+        fields.upper_tick;
 
     // Convert to numbers
-    const parsedTickLower = Number(tickLower);
-    const parsedTickUpper = Number(tickUpper);
+    const parsedTickLower = Number(rawTickLower);
+    const parsedTickUpper = Number(rawTickUpper);
 
-    // Validate ticks
-    if (isNaN(parsedTickLower) || isNaN(parsedTickUpper)) {
+    if (!Number.isFinite(parsedTickLower) || !Number.isFinite(parsedTickUpper)) {
         logger.warn("Tick parsing failed for position:", positionData.objectId);
+        logger.warn("Raw tickLower:", rawTickLower);
+        logger.warn("Raw tickUpper:", rawTickUpper);
         throw new Error(`Invalid tick data for position ${positionData.objectId}`);
     }
 
