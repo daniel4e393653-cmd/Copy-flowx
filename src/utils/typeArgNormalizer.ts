@@ -30,6 +30,15 @@ export function normalizeTypeArguments(typeArgs: string[]): string[] {
 
 /**
  * Checks if an error is related to type argument parsing
+ * 
+ * Known error patterns from Sui blockchain:
+ * - "unexpected token when parsing type args"
+ * - "invalid type tag"
+ * - "type arg" / "typearg"
+ * - "type parameter"
+ * 
+ * Note: This uses string matching as the Sui SDK doesn't provide typed errors.
+ * These patterns are based on actual error messages from the Sui blockchain.
  */
 export function isTypeArgError(error: Error): boolean {
   const message = error.message.toLowerCase();

@@ -89,9 +89,12 @@ export class SuiClientService {
   }
   
   async executeTransactionWithoutSimulation(tx: Transaction): Promise<SuiTransactionBlockResponse> {
-    const maxRetries = 5; // As per requirement: retry up to 5 times
-    
     try {
+      // Use configurable maxRetries from BotConfig
+      // Note: This is specifically for transaction execution retries (up to 5 per requirement)
+      // We use the config value but ensure it's at least 5 as per the requirement
+      const maxRetries = Math.max(this.config.maxRetries, 5);
+      
       // Attempt execution with retry logic
       return await this.executeWithRetry(tx, maxRetries);
     } catch (error) {
@@ -108,7 +111,7 @@ export class SuiClientService {
     tx: Transaction,
     maxRetries: number
   ): Promise<SuiTransactionBlockResponse> {
-    let lastError: Error | undefined;
+    let lastError: Error = new Error('Transaction execution failed with unknown error');
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
