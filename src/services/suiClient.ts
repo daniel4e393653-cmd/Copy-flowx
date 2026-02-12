@@ -4,6 +4,7 @@ import { Transaction } from '@mysten/sui/transactions';
 import { BotConfig } from '../types';
 import { logger } from '../utils/logger';
 import { withRetry } from '../utils/retry';
+import { normalizeTypeArguments, isTypeArgError } from '../utils/typeArgNormalizer';
 
 export class SuiClientService {
   private client: SuiClient;
@@ -88,37 +89,91 @@ export class SuiClientService {
   }
   
   async executeTransactionWithoutSimulation(tx: Transaction): Promise<SuiTransactionBlockResponse> {
+    const maxRetries = 5; // As per requirement: retry up to 5 times
+    
     try {
-      return await withRetry(
-        async () => {
-          const result = await this.client.signAndExecuteTransaction({
-            transaction: tx,
-            signer: this.keypair,
-            options: {
-              showEffects: true,
-              showEvents: true,
-              showObjectChanges: true,
-            },
-          });
-          
-          if (result.effects?.status.status !== 'success') {
-            throw new Error(
-              `Transaction execution failed: ${result.effects?.status.error || 'Unknown error'}`
-            );
-          }
-          
-          logger.info(`Transaction executed successfully: ${result.digest}`);
-          return result;
-        },
-        this.config.maxRetries,
-        this.config.minRetryDelayMs,
-        this.config.maxRetryDelayMs,
-        'Transaction execution'
-      );
+      // Attempt execution with retry logic and type argument auto-correction
+      return await this.executeWithTypeArgRetry(tx, maxRetries);
     } catch (error) {
-      logger.error('Transaction execution failed', error);
+      logger.error('Transaction execution failed after all retries', error);
       throw error;
     }
+  }
+  
+  /**
+   * Execute transaction with automatic type argument correction and retry logic
+   * Retries up to maxRetries times with exponential backoff
+   */
+  private async executeWithTypeArgRetry(
+    tx: Transaction,
+    maxRetries: number
+  ): Promise<SuiTransactionBlockResponse> {
+    let lastError: Error | undefined;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        // Clone the transaction data to normalize type arguments
+        const txData = tx.getData();
+        
+        // Normalize all type arguments in moveCall commands
+        if (txData.commands) {
+          txData.commands.forEach((command: any) => {
+            if (command.$kind === 'MoveCall' && command.MoveCall?.typeArguments) {
+              const originalTypeArgs = command.MoveCall.typeArguments;
+              command.MoveCall.typeArguments = normalizeTypeArguments(originalTypeArgs);
+            }
+          });
+        }
+        
+        // Execute the transaction
+        const result = await this.client.signAndExecuteTransaction({
+          transaction: tx,
+          signer: this.keypair,
+          options: {
+            showEffects: true,
+            showEvents: true,
+            showObjectChanges: true,
+          },
+        });
+        
+        if (result.effects?.status.status !== 'success') {
+          throw new Error(
+            `Transaction execution failed: ${result.effects?.status.error || 'Unknown error'}`
+          );
+        }
+        
+        logger.info(`Transaction executed successfully: ${result.digest}`);
+        return result;
+        
+      } catch (error) {
+        lastError = error as Error;
+        
+        // Check if this is a type argument related error
+        const isTypeError = isTypeArgError(lastError);
+        
+        if (attempt < maxRetries) {
+          // Calculate exponential backoff delay
+          const baseDelay = this.config.minRetryDelayMs || 1000;
+          const maxDelay = this.config.maxRetryDelayMs || 30000;
+          const delay = Math.min(
+            baseDelay * Math.pow(2, attempt),
+            maxDelay
+          );
+          
+          const errorType = isTypeError ? 'Type argument error' : 'Transaction error';
+          logger.warn(
+            `${errorType} on attempt ${attempt + 1}/${maxRetries + 1}: ${lastError.message}. ` +
+            `Retrying with exponential backoff in ${delay}ms...`
+          );
+          
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          logger.error(`Transaction execution failed after ${maxRetries + 1} attempts`);
+        }
+      }
+    }
+    
+    throw lastError;
   }
   
   async getGasPrice(): Promise<bigint> {
