@@ -1,5 +1,3 @@
-require("dotenv").config({});
-
 import { JsonRpcError, SuiClient, SuiHTTPStatusError, SuiTransport, SuiTransportRequestOptions, SuiTransportSubscribeOptions } from "@mysten/sui/client";
 
 
@@ -148,9 +146,17 @@ class HTTPTransport implements SuiTransport {
   }
 }
 
+// Get RPC URL from environment or use fallback
+const rpcUrl =
+  process.env.JSON_RPC_ENDPOINT ||
+  process.env.RPC_URL ||
+  "https://fullnode.mainnet.sui.io:443";
+
+console.log("Using RPC URL:", rpcUrl);
+
 export const jsonRpcProvider = new SuiClient({
   transport: new HTTPTransport({
-    rpcEndpoints: [process.env.JSON_RPC_ENDPOINT],
+    rpcEndpoints: [rpcUrl],
     maxRetry: 0,
   }),
 });
