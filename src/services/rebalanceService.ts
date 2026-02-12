@@ -12,6 +12,10 @@ import {
   getAmountBFromLiquidity,
 } from '../utils/tickMath';
 
+// Fix BigInt JSON serialization
+// @ts-ignore
+BigInt.prototype.toJSON = function() { return this.toString(); };
+
 export class RebalanceService {
   private suiClient: SuiClientService;
   private cetusService: CetusService;
