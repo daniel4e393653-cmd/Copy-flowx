@@ -197,9 +197,7 @@ export class CetusPositionProvider implements IPositionProvider {
     logger.info(`Largest position: ${largestPosition.id} with liquidity ${largestPosition.liquidity}`);
 
     // Validate tick range before returning
-    // Per requirements: positions with tickLower === 0 OR tickUpper === 0 are invalid
-    // Note: parseTickIndex() returns 0 as fallback when it can't parse tick data,
-    // so 0 indicates invalid/missing tick data in this context
+    // Per requirements: positions with invalid tick data should not be returned
     if (largestPosition.tickLower === 0 || largestPosition.tickUpper === 0) {
       logger.warn("Invalid position ticks detected");
       return null;
@@ -221,6 +219,9 @@ export class CetusPositionProvider implements IPositionProvider {
     }
 
     const fields = content.fields as any;
+
+    // Log the FULL raw object for debugging
+    console.log(JSON.stringify(fields, null, 2));
 
     // Extract owner
     let owner = "";
@@ -256,16 +257,37 @@ export class CetusPositionProvider implements IPositionProvider {
       }
     }
 
-    // Handle tick indices (may be stored as objects with bits field or directly)
-    const tickLower = this.parseTickIndex(fields.tick_lower_index || fields.tick_lower);
-    const tickUpper = this.parseTickIndex(fields.tick_upper_index || fields.tick_upper);
+    // Handle tick indices with comprehensive fallback chain
+    const tickLower =
+        fields.tick_lower_index ??
+        fields.tickLowerIndex ??
+        fields.tick_lower ??
+        fields.lower_tick ??
+        fields.tick_lower_index?.bits;
+
+    const tickUpper =
+        fields.tick_upper_index ??
+        fields.tickUpperIndex ??
+        fields.tick_upper ??
+        fields.upper_tick ??
+        fields.tick_upper_index?.bits;
+
+    // Convert to numbers
+    const parsedTickLower = Number(tickLower);
+    const parsedTickUpper = Number(tickUpper);
+
+    // Validate ticks
+    if (isNaN(parsedTickLower) || isNaN(parsedTickUpper)) {
+        logger.warn("Tick parsing failed for position:", positionData.objectId);
+        throw new Error(`Invalid tick data for position ${positionData.objectId}`);
+    }
 
     return new Position({
       objectId: positionData.objectId,
       owner,
       pool,
-      tickLower,
-      tickUpper,
+      tickLower: parsedTickLower,
+      tickUpper: parsedTickUpper,
       liquidity: fields.liquidity || "0",
       coinsOwedX: fields.fee_owed_a || fields.coins_owed_x || "0",
       coinsOwedY: fields.fee_owed_b || fields.coins_owed_y || "0",
